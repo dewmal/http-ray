@@ -44,23 +44,22 @@ impl Request {
                     method = request_line[0].to_string();
                     path = request_line[1].to_string();
                     version = request_line[2].to_string();
-                    for line in lines.skip(1) {
-                        let header_parts: Vec<_> = line.split(":").collect();
-                        let key = header_parts[0];
-                        let value = header_parts[1];
-                        header.insert(key.to_string(), value.trim().to_string());
+                    for line in lines {
+                        if let Some((key, value)) = line.split_once(":") {
+                            header.insert(key.to_string(), value.trim().to_string());
+                        };
                     }
                     is_header_completed = true;
                     content_length = header
                         .get("Content-Length")
-                        .unwrap_or(&"0".to_string())
-                        .parse::<usize>()
-                        .unwrap();
+                        .and_then(|v| v.parse::<usize>().ok())
+                        .unwrap_or(0);
                 }
 
                 let body_recevied = request.len() - body_start;
+                let body_end = body_start + content_length;
                 if body_recevied >= content_length {
-                    body.extend_from_slice(&request[body_start..]);
+                    body.extend_from_slice(&request[body_start..body_end]);
                     break;
                 }
             }
