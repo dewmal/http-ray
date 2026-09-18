@@ -27,6 +27,7 @@ impl Request {
         let mut body = Vec::new();
         let mut is_header_completed = false;
         let mut content_length: usize = 0;
+        let mut body_start = 0;
         loop {
             let n = stream.read(&mut buffer)?;
             if n == 0 {
@@ -34,9 +35,9 @@ impl Request {
             }
             request.extend_from_slice(&buffer[..n]);
 
-            if let Some(header_left) = request.windows(4).position(|w| w == b"\r\n\r\n") {
-                let body_start = header_left + 4;
-                if !is_header_completed {
+            if !is_header_completed {
+                if let Some(header_left) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+                    body_start = header_left + 4;
                     let header_content = String::from_utf8_lossy(&request[..header_left]);
                     let mut lines = header_content.lines();
 
@@ -55,13 +56,13 @@ impl Request {
                         .and_then(|v| v.parse::<usize>().ok())
                         .unwrap_or(0);
                 }
+            }
 
-                let body_recevied = request.len() - body_start;
-                let body_end = body_start + content_length;
-                if body_recevied >= content_length {
-                    body.extend_from_slice(&request[body_start..body_end]);
-                    break;
-                }
+            let body_recevied = request.len() - body_start;
+            let body_end = body_start + content_length;
+            if body_recevied >= content_length {
+                body.extend_from_slice(&request[body_start..body_end]);
+                break;
             }
         }
 
